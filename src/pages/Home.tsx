@@ -65,8 +65,8 @@ export default function Home() {
       <section className="band light" style={{ paddingTop: 'clamp(90px,11vw,140px)' }}>
         <div className="wrap split">
           <div className="welcome-photo">
-            <img src="/images/apostle.webp" alt="Apostle Joshua" width={700} height={1050} loading="lazy" />
-            <div className="badge"><b>APOSTLE JOSHUA</b><span>APOSTLE JOSHUA OUTREACH</span></div>
+            <img src="/images/apostle.webp" alt="Apostle Joshua A. Ogiriosa" width={700} height={1050} loading="lazy" />
+            <div className="badge"><b>JOSHUA A. OGIRIOSA</b><span>APOSTLE &middot; APOSTLE JOSHUA OUTREACH</span></div>
           </div>
           <div className="stack">
             <span className="eyebrow">A word of welcome</span>

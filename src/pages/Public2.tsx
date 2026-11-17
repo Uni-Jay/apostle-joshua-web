@@ -35,7 +35,7 @@ export function BlogPost() {
         <article className="article">
           {p.cover_url && <img className="cover" src={mediaUrl(p.cover_url)} alt="" style={{ borderRadius: 20 }} />}
           <div className="body">{(p.body || '').split(/\n\s*\n/).map((t, i) => <p key={i}>{t}</p>)}</div>
-          <p className="signoff">&mdash; Apostle Joshua</p>
+          <p className="signoff">&mdash; Apostle Joshua A. Ogiriosa</p>
           <div className="btns"><Link className="btn btn-line" to="/blog">More devotionals</Link><Link className="btn btn-ink" to="/prayer">Send a prayer request</Link></div>
         </article>
       </section>

@@ -27,11 +27,11 @@ export function About() {
       </section>
       <section className="band light">
         <div className="wrap split">
-          <div className="welcome-photo"><img src="/images/apostle.webp" alt="Portrait of Apostle Joshua" width={700} height={1050} loading="lazy" /></div>
+          <div className="welcome-photo"><img src="/images/apostle.webp" alt="Portrait of Apostle Joshua A. Ogiriosa" width={700} height={1050} loading="lazy" /></div>
           <div className="stack">
             <span className="eyebrow">Meet the Apostle</span>
-            <h2 className="h2">Apostle <span className="italic">Joshua</span></h2>
-            <p className="lead">Apostle Joshua leads Apostle Joshua Outreach with a call to reveal Christ to the nations and to teach the Word with clarity and conviction.</p>
+            <h2 className="h2">Apostle Joshua <span className="italic">A. Ogiriosa</span></h2>
+            <p className="lead">Apostle Joshua A. Ogiriosa leads Apostle Joshua Outreach with a call to reveal Christ to the nations and to teach the Word with clarity and conviction.</p>
             {story.length ? story.map((p, i) => <p key={i} className="muted">{p}</p>) : <p className="muted">His ministry centres on sound doctrine, fervent prayer and the transformation that follows when God&rsquo;s Word is believed and obeyed.</p>}
           </div>
         </div>

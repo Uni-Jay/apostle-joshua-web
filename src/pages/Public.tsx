@@ -24,6 +24,18 @@ export function About() {
           </div>
           <aside className="verse-card" aria-label="Our commission"><div className="mark" aria-hidden="true">&ldquo;</div><p>To reveal his Son in me, that I might preach him among the heathen&hellip;</p><cite>GALATIANS 1:16 &middot; OUR COMMISSION</cite></aside>
         </div>
+        <div className="wrap vm" id="vision">
+          <div className="vision">
+            <span className="eyebrow">Our vision</span>
+            <p>To see lives across the nations <em>transformed by Jesus Christ</em>: people grounded in sound doctrine, strengthened by fervent prayer, and living in a way that reveals Christ wherever they are.</p>
+          </div>
+          <div className="head" style={{ marginBottom: 18 }}><span className="eyebrow">Our mission</span><h2>To reveal <span className="italic">Christ</span> to the nations through</h2></div>
+          <div className="cards">
+            <article className="card"><div className="n" aria-hidden="true">01</div><h3>Sound Doctrine</h3><p>Teaching the New Testament message, the apostles&rsquo; doctrine, with clarity and faithfulness, so that believers are rooted in the truth of God&rsquo;s Word.</p><cite className="card-ref">ACTS 2:42</cite></article>
+            <article className="card"><div className="n" aria-hidden="true">02</div><h3>Fervent Prayer</h3><p>Raising men and women who seek God earnestly, through prayer gatherings and seasons of intercession for individuals, families and nations.</p><cite className="card-ref">JAMES 5:16</cite></article>
+            <article className="card"><div className="n" aria-hidden="true">03</div><h3>Transformed Lives</h3><p>Taking the Gospel to people through crusades, seminars and conferences, so that many come to Jesus, grow strong in Him, and are equipped to serve. As God provides, this includes caring for the needy and helping people find work.</p><cite className="card-ref">ROMANS 12:2</cite></article>
+          </div>
+        </div>
       </section>
       <section className="band light">
         <div className="wrap split">

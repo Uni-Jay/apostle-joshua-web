@@ -9,6 +9,13 @@ interface Config { enabled: boolean; name: string; greeting: string; chips: stri
 type Mode = 'bot' | 'live';
 
 const STORE = 'ajo_chat_v1';
+// Shown straight away, so the chat button never waits for the server (which can take a minute to wake up).
+const FALLBACK: Config = {
+  enabled: true, name: 'Outreach Assistant', agentsOnline: 0,
+  greeting: 'Hello, and welcome! 🙌 I can tell you about upcoming events, share a message to watch, take your prayer request, or connect you with our team. How can I help?',
+  chips: ['Upcoming events', 'Send a prayer request', 'Watch a message', 'Invite Apostle Joshua', 'Talk to someone'],
+  whatsapp: '+234 907 605 2317', phone: '+234 811 823 5172',
+};
 const load = (): { sessionId?: string; msgs?: Msg[]; nudged?: boolean; mode?: Mode; lastId?: number; agentName?: string } => { try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch { return {}; } };
 const save = (v: object) => { try { localStorage.setItem(STORE, JSON.stringify(v)); } catch { /* storage unavailable: chat still works for this visit */ } };
 
@@ -34,7 +41,7 @@ function Rich({ text }: { text: string }) {
 
 export default function ChatWidget() {
   const saved = useRef(load());
-  const [cfg, setCfg] = useState<Config | null>(null);
+  const [cfg, setCfg] = useState<Config>(FALLBACK);
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>(saved.current.msgs || []);
   const [sessionId, setSessionId] = useState<string | undefined>(saved.current.sessionId);
@@ -50,11 +57,11 @@ export default function ChatWidget() {
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => { api.get('/chat/config').then((r) => setCfg(r.data)).catch(() => setCfg(null)); }, []);
+  useEffect(() => { api.get('/chat/config', { timeout: 70000 }).then((r) => setCfg({ ...FALLBACK, ...r.data })).catch(() => undefined); }, []);
   useEffect(() => { save({ sessionId, msgs: msgs.slice(-60), nudged: saved.current.nudged, mode, lastId, agentName }); }, [sessionId, msgs, mode, lastId, agentName]);
   // Keep the "team online" status fresh.
   useEffect(() => {
-    const t = setInterval(() => api.get('/chat/config').then((r) => setCfg(r.data)).catch(() => undefined), 60000);
+    const t = setInterval(() => api.get('/chat/config').then((r) => setCfg({ ...FALLBACK, ...r.data })).catch(() => undefined), 60000);
     return () => clearInterval(t);
   }, []);
   // Live chat: check for replies from the team (every 4s with the chat open, every 15s when closed).
@@ -72,7 +79,7 @@ export default function ChatWidget() {
           if (!openRef.current) setUnread((u) => u + fresh.filter((f) => f.role === 'agent').length);
         }
         setAgentName(r.data.agentName || undefined);
-        setCfg((c) => (c ? { ...c, agentsOnline: r.data.agentsOnline } : c));
+        setCfg((c) => ({ ...c, agentsOnline: r.data.agentsOnline }));
         if (r.data.mode !== 'live') setMode('bot');
       } catch { /* try again on the next tick */ }
     };
@@ -95,11 +102,11 @@ export default function ChatWidget() {
     return () => { window.removeEventListener('keydown', esc); document.body.classList.remove('chat-open'); };
   }, [open]);
 
-  if (!cfg?.enabled) return null;
+  if (!cfg.enabled) return null;
 
   function openChat() {
     setOpen(true); setNudge(false); setUnread(0); saved.current.nudged = true;
-    if (!msgs.length) setMsgs([{ role: 'bot', text: cfg!.greeting, chips: cfg!.chips }]);
+    if (!msgs.length) setMsgs([{ role: 'bot', text: cfg.greeting, chips: cfg.chips }]);
   }
 
   async function send(raw: string) {
@@ -109,19 +116,20 @@ export default function ChatWidget() {
     setMsgs((m) => [...m, { role: 'user', text: message }]);
     setTyping(true);
     try {
-      const r = await api.post('/chat', { sessionId, message, page: window.location.pathname });
+      const r = await api.post('/chat', { sessionId, message, page: window.location.pathname }, { timeout: 70000 });
       setSessionId(r.data.sessionId);
       if (r.data.mode) setMode(r.data.mode);
       if (r.data.reply) setMsgs((m) => [...m, { role: 'bot', text: r.data.reply.text, chips: r.data.reply.chips, action: r.data.reply.action }]);
     } catch (x) {
-      setMsgs((m) => [...m, { role: 'bot', text: `${errMsg(x, 'Sorry, I could not reply just now.')} You can also reach the team on WhatsApp.`, action: { type: 'whatsapp' } }]);
+      const offline = !(x as any)?.response;
+      setMsgs((m) => [...m, { role: 'bot', text: offline ? `Sorry, I'm having trouble connecting right now. You can reach the team on WhatsApp (${cfg.whatsapp}) or call ${cfg.phone}.` : `${errMsg(x, 'Sorry, I could not reply just now.')} You can also reach the team on WhatsApp.`, action: { type: 'whatsapp' } }]);
     } finally { setTyping(false); }
   }
 
   async function startLive() {
     if (mode === 'live') return;
     try {
-      const r = await api.post('/chat/live', { sessionId, page: window.location.pathname });
+      const r = await api.post('/chat/live', { sessionId, page: window.location.pathname }, { timeout: 70000 });
       setSessionId(r.data.sessionId); setMode('live'); setLastId(r.data.lastId);
       setMsgs((m) => [...m, { role: 'system', text: r.data.text, id: r.data.lastId }]);
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -129,7 +137,7 @@ export default function ChatWidget() {
   }
   async function backToBot() {
     if (!sessionId) return;
-    try { const r = await api.post('/chat/bot', { sessionId }); setMode('bot'); setLastId(r.data.lastId); setAgentName(undefined); setMsgs((m) => [...m, { role: 'system', text: r.data.text, chips: cfg!.chips }]); } catch { /* ignore */ }
+    try { const r = await api.post('/chat/bot', { sessionId }); setMode('bot'); setLastId(r.data.lastId); setAgentName(undefined); setMsgs((m) => [...m, { role: 'system', text: r.data.text, chips: cfg.chips }]); } catch { /* ignore */ }
   }
 
   const lastUser = [...msgs].reverse().find((m) => m.role === 'user')?.text || '';

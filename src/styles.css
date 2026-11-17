@@ -62,7 +62,8 @@ p{margin:0}
 .brand b{display:block;font-size:13px;letter-spacing:.18em;font-weight:800;white-space:nowrap}
 .brand span{display:block;font-size:10px;letter-spacing:.38em;color:var(--gold);font-weight:700}
 .links{list-style:none;margin:0;padding:0;display:none}
-.links a{display:block;color:var(--cream);text-decoration:none;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.links a{display:block;color:var(--cream);text-decoration:none;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+@media (min-width:1200px) and (max-width:1439px){.links a{font-size:12px;letter-spacing:.07em}.nav-cta.btn{padding:12px 16px;font-size:12px}}
 .links a[aria-current="page"]{color:var(--gold)}
 .nav-cta{display:none}
 .menu-btn{flex:none;display:inline-flex;align-items:center;gap:8px;background:none;border:1.5px solid var(--line);color:var(--cream);border-radius:12px;padding:10px 14px;font:800 12px var(--body);letter-spacing:.14em;cursor:pointer}
@@ -71,9 +72,10 @@ p{margin:0}
 .menu-btn i::before{top:-5px}.menu-btn i::after{top:5px}
 .nav.open .links{display:flex;flex-direction:column;position:absolute;left:0;right:0;top:100%;background:var(--ink);border-bottom:1px solid var(--line);padding:8px 0 16px;box-shadow:var(--shadow)}
 .nav.open .links a{padding:14px var(--gutter)}
-@media (min-width:1040px){
+@media (min-width:1200px){
+  .brand{flex:none}
   .menu-btn{display:none}
-  .links,.nav.open .links{display:flex;position:static;flex-direction:row;gap:26px;padding:0;background:none;border:0;box-shadow:none}
+  .links,.nav.open .links{display:flex;position:static;flex-direction:row;gap:clamp(14px,1.5vw,26px);margin:0 auto;padding:0;background:none;border:0;box-shadow:none}
   .links a,.nav.open .links a{padding:8px 0;opacity:.86;border-bottom:2px solid transparent}
   .links a:hover{opacity:1}
   .links a[aria-current="page"]{opacity:1;border-bottom-color:var(--gold)}
@@ -92,7 +94,7 @@ p{margin:0}
 .hero{position:relative;overflow:hidden;background:radial-gradient(ellipse 85% 95% at 72% 32%,#3A28E0 0%,var(--royal) 38%,var(--ink) 78%)}
 .hero .wrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr);gap:24px;padding-top:clamp(40px,6vw,76px)}
 .hero-copy{display:flex;flex-direction:column;gap:clamp(18px,2.4vw,28px);padding-bottom:6px;max-width:640px}
-.hero h1{font-family:var(--display);font-size:clamp(60px,12.5vw,150px);line-height:.84;letter-spacing:.005em}
+.hero h1{font-family:var(--display);font-size:clamp(60px,min(12.5vw,19vh),150px);line-height:.84;letter-spacing:.005em}
 .hero h1 em{font-style:normal;color:var(--gold);text-shadow:0 0 60px rgba(244,201,93,.45)}
 .hero .sub{font-size:clamp(16px,1.9vw,19px);color:var(--mist);max-width:46ch}
 .hero blockquote{margin:0;padding-left:18px;border-left:2px solid var(--gold);font-family:var(--serif);font-style:italic;font-size:clamp(17px,2vw,22px);line-height:1.45;max-width:38ch}
@@ -561,3 +563,6 @@ button.chat-cta{border:0;cursor:pointer}
 .live-alert{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:18px;padding:14px 18px;border-radius:16px;background:rgba(61,220,132,.14);border:1px solid rgba(61,220,132,.45);color:var(--cream);text-decoration:none}
 .live-alert span{margin-left:auto;color:#3DDC84;font-weight:800}
 .live-alert .live-dot{width:10px;height:10px;border-radius:50%;background:#3DDC84;display:inline-block}
+
+/* Short laptop screens: keep the hero compact so the photo and buttons stay in view */
+@media (min-width:880px) and (max-height:760px){.hero-copy{padding-bottom:64px;gap:16px}.hero .wrap{padding-top:32px}}

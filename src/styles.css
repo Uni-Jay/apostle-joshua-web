@@ -564,7 +564,7 @@ button.chat-cta{border:0;cursor:pointer}
 .live-alert .live-dot{width:10px;height:10px;border-radius:50%;background:#3DDC84;display:inline-block}
 
 /* Short laptop screens: keep the hero compact so the photo and buttons stay in view */
-@media (min-width:880px) and (max-height:760px){.hero-copy{padding-bottom:64px;gap:16px}.hero .wrap{padding-top:32px}}
+@media (min-width:880px) and (max-height:760px){.hero-copy{gap:16px}.hero .wrap{padding-top:32px}}
 
 /* Hero: open Bible inside perfectly centred rings (all circles share one centre) */
 .bible-art{position:relative;width:min(100%,470px);aspect-ratio:1;margin:8px auto 40px;align-self:center}
@@ -583,3 +583,6 @@ button.chat-cta{border:0;cursor:pointer}
   @keyframes baglow{50%{opacity:.75;transform:scale(1.04)}}
   @keyframes babeams{50%{opacity:.45}}
 }
+
+/* Keep a clear gap between the hero buttons and the 'Latest message' card that overlaps the hero */
+@media (min-width:880px){.hero-copy{padding-bottom:clamp(150px,13vw,190px)}}

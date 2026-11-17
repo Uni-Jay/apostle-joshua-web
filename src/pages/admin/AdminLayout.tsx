@@ -27,22 +27,22 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
 const LINKS: [string, string, string][] = [
   ['/admin', 'grid', 'Overview'], ['/admin/sermons', 'video', 'Sermons & videos'], ['/admin/events', 'cal', 'Events'],
   ['/admin/blog', 'book', 'Devotionals'], ['/admin/gallery', 'img', 'Gallery photos'], ['/admin/prayer', 'heart', 'Prayer requests'],
-  ['/admin/messages', 'mail', 'Messages'], ['/admin/settings', 'gear', 'Settings'],
+  ['/admin/messages', 'mail', 'Messages'], ['/admin/chat', 'chat', 'Chat assistant'], ['/admin/settings', 'gear', 'Settings'],
 ];
 
 export default function AdminLayout() {
   const { user, logout } = useAuth();
   const nav = useNavigate();
-  const [badges, setBadges] = useState<{ prayer?: number; messages?: number }>({});
+  const [badges, setBadges] = useState<{ prayer?: number; messages?: number; chat?: number }>({});
   const loc = useLocation();
-  useEffect(() => { api.get('/dashboard').then((r) => setBadges({ prayer: r.data.counts.prayersNew, messages: r.data.counts.messagesNew })).catch(() => undefined); }, [loc.pathname]);
+  useEffect(() => { api.get('/dashboard').then((r) => setBadges({ prayer: r.data.counts.prayersNew, messages: r.data.counts.messagesNew, chat: r.data.counts.chatsUnseen })).catch(() => undefined); }, [loc.pathname]);
   return (
     <>
       <section className="dash">
         <aside className="side" aria-label="Dashboard">
           <div className="side-head"><img src="/images/logo.webp" alt="" width={36} height={36} /><div><b>APOSTLE JOSHUA</b><span>DASHBOARD</span></div></div>
           {LINKS.map(([to, ic, label]) => {
-            const n = to === '/admin/prayer' ? badges.prayer : to === '/admin/messages' ? badges.messages : 0;
+            const n = to === '/admin/prayer' ? badges.prayer : to === '/admin/messages' ? badges.messages : to === '/admin/chat' ? badges.chat : 0;
             return <NavLink key={to} to={to} end={to === '/admin'} className="snav" style={({ isActive }) => (isActive ? { background: 'var(--gold)', color: 'var(--ink)' } : undefined)}>
               <Icon name={ic} />{label}{n ? <span className="pill new" style={{ marginLeft: 'auto' }}>{n}</span> : null}</NavLink>;
           })}

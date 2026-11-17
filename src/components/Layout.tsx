@@ -1,3 +1,5 @@
+import ChatWidget from './ChatWidget';
+import Rays from './Rays';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useSite } from '../context/SiteContext';
@@ -80,6 +82,7 @@ export default function Layout() {
       <Header />
       <main key={loc.pathname} className="page-enter"><Outlet /></main>
       <Footer />
+      <ChatWidget />
     </VideoProvider>
   );
 }
@@ -96,7 +99,6 @@ export function PageHead({ crumb, title, children }: { crumb: string; title: Rea
     </header>
   );
 }
-import Rays from './Rays';
 function RaysLazy() { return <Rays cx={0.9} cy={-0.1} />; }
 
 export function Loading({ label = 'Loading' }: { label?: string }) {

@@ -42,7 +42,7 @@ export interface Sermon { id: number; title: string; type: SermonType; youtube_i
 export interface EventItem { id: number; title: string; starts_on?: string | null; time_text?: string | null; venue?: string | null; description?: string | null; is_past: number }
 export interface Photo { id: number; url: string; caption?: string | null; category: string }
 export interface Post { id: number; title: string; slug: string; excerpt?: string | null; body?: string; scripture?: string | null; cover_url?: string | null; status?: string; published_at?: string | null }
-export interface Settings { address: string; map_url: string; meeting_times: string; phone: string; whatsapp: string; email: string; story: string; giving: string; youtube_url: string; facebook_url: string; instagram_url: string; live_is_on: boolean; live_url: string; live_title: string; live_video_id: string }
+export interface Settings { address: string; map_url: string; meeting_times: string; phone: string; whatsapp: string; email: string; story: string; giving: string; youtube_url: string; facebook_url: string; instagram_url: string; live_is_on: boolean; live_url: string; live_title: string; live_video_id: string; bot_enabled?: boolean; bot_name?: string; bot_greeting?: string }
 
 export const TYPE_LABEL: Record<string, string> = { sermon: 'Sermon', prayer: 'Prayer session', service: 'Service', teaching: 'Short clip' };
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -52,6 +52,15 @@ export function fmtDate(d?: string | null, approx = false): string {
   if (p.length < 3) return String(d);
   return approx ? `${MON[+p[1] - 1]} ${p[0]}` : `${+p[2]} ${MON[+p[1] - 1]} ${p[0]}`;
 }
+/** Database timestamps are UTC ("YYYY-MM-DD HH:MM:SS"); show them in local time, e.g. "17 Nov 2026, 16:22". */
+export function fmtStamp(d?: string | null): string {
+  if (!d) return '';
+  const t = new Date(String(d).replace(' ', 'T') + (/[zZ]|[+-]\d\d:?\d\d$/.test(d) ? '' : 'Z'));
+  if (isNaN(t.getTime())) return String(d);
+  return `${t.getDate()} ${MON[t.getMonth()]} ${t.getFullYear()}, ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+}
+/** Plain text for admin views: drop **bold** markers and turn [label](link) into "label". */
+export const plainText = (s: string) => String(s || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
 export function monthShort(d: string) { return MON[+d.slice(5, 7) - 1]; }
 export function youtubeId(u: string): string {
   const s = (u || '').trim();

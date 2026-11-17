@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import { About, Events, Gallery, Live, Sermons } from './pages/Public';
 import { Blog, BlogPost, Contact, Give, NotFound, Prayer } from './pages/Public2';
 import AdminLayout, { ForgotPassword, Login, RequireAdmin, ResetPassword } from './pages/admin/AdminLayout';
+import AssistantAdmin from './pages/admin/Assistant';
 import { BlogAdmin, Dashboard, EventsAdmin, GalleryAdmin, MessagesAdmin, PrayerAdmin, SermonsAdmin, SettingsAdmin } from './pages/admin/Manage';
 
 function ScrollTop() {
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="blog" element={<BlogAdmin />} />
           <Route path="prayer" element={<PrayerAdmin />} />
           <Route path="messages" element={<MessagesAdmin />} />
+          <Route path="chat" element={<AssistantAdmin />} />
           <Route path="settings" element={<SettingsAdmin />} />
         </Route>
       </Routes>

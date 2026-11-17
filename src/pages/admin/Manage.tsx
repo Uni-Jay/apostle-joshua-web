@@ -4,7 +4,7 @@ import { Icon } from '../../components/Icons';
 import { Loading } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
 import { useSite } from '../../context/SiteContext';
-import { api, errMsg, EventItem, fmtDate, mediaUrl, Photo, Post, Sermon, TYPE_LABEL, youtubeId } from '../../lib/api';
+import { api, errMsg, EventItem, fmtDate, fmtStamp, mediaUrl, Photo, Post, Sermon, TYPE_LABEL, youtubeId } from '../../lib/api';
 import { DelBtn, Topbar, toast } from './AdminLayout';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -28,6 +28,7 @@ export function Dashboard() {
         <div className="stat"><span className="k">Videos</span><span className="v">{c.sermons}</span><span className="d">on the Sermons page</span></div>
         <div className="stat"><span className="k">Upcoming events</span><span className="v">{c.upcomingEvents}</span><span className="d">{days !== null ? `Next in ${days} day${days === 1 ? '' : 's'}` : 'Add your next gathering'}</span></div>
         <div className="stat"><span className="k">Devotionals</span><span className="v">{c.postsPublished}</span><span className="d">{c.postsDraft} draft{c.postsDraft === 1 ? '' : 's'}</span></div>
+        <Link to="/admin/chat" className="stat" style={{ textDecoration: 'none', color: 'inherit', borderColor: c.chatsUrgent ? '#E23B3B' : undefined }}><span className="k">Website chats</span><span className="v">{c.chatsWeek}</span><span className="d">this week{c.chatsUnseen ? ` · ${c.chatsUnseen} unread` : ''}{c.chatsUrgent ? ' · URGENT' : ''}</span></Link>
         <div className="stat"><span className="k">Photos</span><span className="v">{c.photos}</span><span className="d">in the gallery</span></div>
       </div>
       {d.missing.length > 0 && (
@@ -266,7 +267,7 @@ export function PrayerAdmin() {
       <div className="chips">{[['', 'All'], ['new', 'New'], ['praying', 'Praying'], ['answered', 'Answered']].map(([k, l]) => <button key={k} className="chip" aria-pressed={f === k} onClick={() => setF(k)}>{l}</button>)}</div>
       {!list ? <Loading /> : list.length ? <div className="rows">{list.map((p) => (
         <div key={p.id} className="inbox-item">
-          <div className="top"><div><b>{p.name}</b> <small>{fmtDate(p.created_at)} {p.created_at?.slice(11, 16)}</small></div><span className={`pill ${p.status}`}>{p.status}</span></div>
+          <div className="top"><div><b>{p.name}</b> <small>{fmtStamp(p.created_at)}</small></div><span className={`pill ${p.status}`}>{p.status}</span></div>
           <p>{p.request}</p>
           {(p.phone || p.email) && <small>{p.phone && <a href={`https://wa.me/${p.phone.replace(/[^0-9]/g, '')}`}>{p.phone}</a>}{p.phone && p.email ? ' · ' : ''}{p.email && <a href={`mailto:${p.email}`}>{p.email}</a>}</small>}
           <div className="acts">
@@ -289,7 +290,7 @@ export function MessagesAdmin() {
       <Topbar title="Messages" sub="Invitations, visit plans, volunteers and enquiries from the Contact page." />
       {!list ? <Loading /> : list.length ? <div className="rows">{list.map((m) => (
         <div key={m.id} className="inbox-item">
-          <div className="top"><div><b>{m.name}</b> <small>{m.subject} · {fmtDate(m.created_at)}</small></div><span className={`pill ${m.status}`}>{m.status}</span></div>
+          <div className="top"><div><b>{m.name}</b> <small>{m.subject} · {fmtStamp(m.created_at)}</small></div><span className={`pill ${m.status}`}>{m.status}</span></div>
           <p>{m.body}</p>
           <small>{m.phone && <><a href={`https://wa.me/${m.phone.replace(/[^0-9]/g, '')}`}>WhatsApp {m.phone}</a> · <a href={`tel:${m.phone.replace(/[^0-9+]/g, '')}`}>Call</a></>}{m.phone && m.email ? ' · ' : ''}{m.email && <a href={`mailto:${m.email}`}>{m.email}</a>}</small>
           <div className="acts">

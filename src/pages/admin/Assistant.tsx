@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Loading } from '../../components/Layout';
 import { api, errMsg, fmtStamp, plainText } from '../../lib/api';
@@ -39,13 +39,39 @@ function Chats() {
   const openId = sp.get('c');
   const [list, setList] = useState<any[] | null>(null);
   const [conv, setConv] = useState<any>(null);
-  const load = useCallback(() => api.get('/admin/chats').then((r) => setList(r.data)).catch(() => setList([])), []);
-  useEffect(() => { load(); }, [load]);
+  const [reply, setReply] = useState(''); const [sending, setSending] = useState(false);
+  const tRef = useRef<HTMLDivElement>(null);
+  const load = useCallback(() => api.get('/admin/chats').then((r) => setList(r.data)).catch(() => setList((l) => l || [])), []);
+  useEffect(() => { load(); const t = setInterval(load, 10000); return () => clearInterval(t); }, [load]);
+  const fetchConv = useCallback(async (id: string, initial: boolean) => {
+    const after = !initial && conv && conv !== 'loading' && conv.messages.length ? conv.messages[conv.messages.length - 1].id : 0;
+    const r = await api.get(`/admin/chats/${id}`, { params: { after } });
+    setConv((c: any) => (initial || !c || c === 'loading' ? r.data : { session: r.data.session, messages: [...c.messages, ...r.data.messages.filter((m: any) => !c.messages.some((x: any) => x.id === m.id))] }));
+  }, [conv]);
   useEffect(() => {
     if (!openId) { setConv(null); return; }
-    setConv('loading');
+    setConv('loading'); setReply('');
     api.get(`/admin/chats/${openId}`).then((r) => { setConv(r.data); setList((l) => l?.map((x) => (x.id === openId ? { ...x, seen: 1 } : x)) || l); }).catch(() => setConv(null));
   }, [openId]);
+  // While a conversation is open, check for new visitor messages every 4 seconds.
+  useEffect(() => {
+    if (!openId || !conv || conv === 'loading') return;
+    const t = setInterval(() => { fetchConv(openId, false).catch(() => undefined); }, 4000);
+    return () => clearInterval(t);
+  }, [openId, conv, fetchConv]);
+  const msgCount = conv && conv !== 'loading' ? conv.messages.length : 0;
+  useEffect(() => { tRef.current?.scrollTo({ top: tRef.current.scrollHeight }); }, [msgCount]);
+  async function sendReply(e: FormEvent) {
+    e.preventDefault();
+    if (!reply.trim() || !openId) return;
+    setSending(true);
+    try { await api.post(`/admin/chats/${openId}/reply`, { text: reply.trim() }); setReply(''); await fetchConv(openId, false); load(); }
+    catch (x) { toast(errMsg(x)); } finally { setSending(false); }
+  }
+  async function endLive() {
+    if (!openId) return;
+    try { await api.post(`/admin/chats/${openId}/end`); toast('Live chat ended'); await fetchConv(openId, false); load(); } catch (x) { toast(errMsg(x)); }
+  }
   const pick = (id: string | null) => setSp(id ? { tab: 'chats', c: id } : { tab: 'chats' });
   if (!list) return <Loading />;
   return (
@@ -54,9 +80,9 @@ function Chats() {
         <h2>Conversations</h2>
         {list.length ? <div className="rows">{list.map((c) => (
           <button key={c.id} className={`arow chat-row${c.id === openId ? ' on' : ''}`} style={{ gridTemplateColumns: 'minmax(0,1fr) auto', textAlign: 'left' }} onClick={() => pick(c.id)}>
-            <div><b>{c.urgent ? '⚠️ ' : ''}{c.name || c.phone || c.email || 'Visitor'}</b><small>{(c.first_message || '').slice(0, 70)}</small></div>
+            <div><b>{c.urgent ? '⚠️ ' : ''}{c.name || c.phone || c.email || 'Visitor'}</b><small>{(c.first_message || '(asked for a person)').slice(0, 70)}</small></div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-              <small>{when(c.last_at)}</small>{!c.seen && <span className="pill new">new</span>}{!!c.urgent && <span className="pill urgent">urgent</span>}
+              <small>{when(c.last_at)}</small>{c.mode === 'live' && <span className="pill live">live</span>}{!c.seen && <span className="pill new">new</span>}{!!c.urgent && <span className="pill urgent">urgent</span>}
             </div>
           </button>))}</div> : <p className="hint">No conversations yet. They will appear here as visitors chat on the website.</p>}
       </div>
@@ -66,6 +92,7 @@ function Chats() {
             <div className="panel-head">
               <h2>{conv.session.name || 'Visitor'}</h2>
               <div className="acts"><button className="mini" onClick={() => pick(null)}>Back</button>
+                {conv.session.mode === 'live' && <button className="mini" onClick={endLive}>End live chat</button>}
                 <DelBtn onConfirm={async () => { try { await api.delete(`/admin/chats/${openId}`); toast('Conversation deleted'); pick(null); load(); } catch (x) { toast(errMsg(x)); } }} /></div>
             </div>
             <p className="hint">
@@ -73,9 +100,17 @@ function Chats() {
               {conv.session.phone && <> · <a href={`https://wa.me/${conv.session.phone.replace(/^0/, '234').replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer">WhatsApp {conv.session.phone}</a></>}
               {conv.session.email && <> · <a href={`mailto:${conv.session.email}`}>{conv.session.email}</a></>}
             </p>
-            <div className="transcript">{conv.messages.map((m: any) => (
-              <div key={m.id} className={`tmsg ${m.role}`}><div>{plainText(m.text)}</div><small>{m.role === 'user' ? 'Visitor' : m.source === 'ai' ? 'Assistant (AI)' : m.source === 'form' ? 'Form sent' : 'Assistant'} · {fmtStamp(m.created_at).split(', ')[1]}</small></div>
+            {conv.session.mode === 'live' && <div className="notice ok" style={{ marginTop: 10 }}>Live chat: the visitor sees your replies on the website within a few seconds.</div>}
+            <div className="transcript" ref={tRef}>{conv.messages.map((m: any) => (
+              <div key={m.id} className={`tmsg ${m.role}`}><div>{plainText(m.text)}</div><small>{m.role === 'user' ? 'Visitor' : m.role === 'agent' ? (m.author || 'Team') : m.role === 'system' ? 'Notice' : m.source === 'ai' ? 'Assistant (AI)' : m.source === 'form' ? 'Form sent' : 'Assistant'} · {fmtStamp(m.created_at).split(', ')[1]}</small></div>
             ))}</div>
+            <form className="reply-box" onSubmit={sendReply}>
+              <label htmlFor="rp" className="sr">Reply to the visitor</label>
+              <textarea id="rp" rows={2} value={reply} placeholder={conv.session.mode === 'live' ? 'Type your reply…' : 'Reply to start a live chat with this visitor…'} onChange={(e) => setReply(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); (e.currentTarget.form as HTMLFormElement).requestSubmit(); } }} />
+              <button className="btn btn-gold" type="submit" disabled={sending || !reply.trim()}>{sending ? 'Sending…' : 'Send'}</button>
+            </form>
+            <p className="hint" style={{ marginTop: 6 }}>Visitors only see replies while they still have the website open. If they&rsquo;ve left, contact them by phone or WhatsApp if they shared a number.</p>
           </>
         ) : <div className="notice err">Conversation not found.</div>}
       </div>

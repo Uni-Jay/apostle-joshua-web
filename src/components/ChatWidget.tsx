@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import { api, errMsg, telLink, waLink } from '../lib/api';
 import { Icon } from './Icons';
 
-type Action = { type: 'prayer_form' } | { type: 'contact_form'; subject: string } | { type: 'whatsapp' } | { type: 'call' };
-interface Msg { role: 'user' | 'bot'; text: string; chips?: string[]; action?: Action | null; done?: boolean }
-interface Config { enabled: boolean; name: string; greeting: string; chips: string[]; whatsapp: string; phone: string }
+type Action = { type: 'prayer_form' } | { type: 'contact_form'; subject: string } | { type: 'whatsapp' } | { type: 'handoff' } | { type: 'call' };
+interface Msg { id?: number; role: 'user' | 'bot' | 'agent' | 'system'; text: string; author?: string | null; chips?: string[]; action?: Action | null; done?: boolean }
+interface Config { enabled: boolean; name: string; greeting: string; chips: string[]; whatsapp: string; phone: string; agentsOnline: number }
+type Mode = 'bot' | 'live';
 
 const STORE = 'ajo_chat_v1';
-const load = (): { sessionId?: string; msgs?: Msg[]; nudged?: boolean } => { try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch { return {}; } };
+const load = (): { sessionId?: string; msgs?: Msg[]; nudged?: boolean; mode?: Mode; lastId?: number; agentName?: string } => { try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch { return {}; } };
 const save = (v: object) => { try { localStorage.setItem(STORE, JSON.stringify(v)); } catch { /* storage unavailable: chat still works for this visit */ } };
 
 /* Tiny, safe formatter: **bold**, [label](link), line breaks. No HTML is ever injected. */
@@ -40,11 +41,45 @@ export default function ChatWidget() {
   const [text, setText] = useState('');
   const [typing, setTyping] = useState(false);
   const [nudge, setNudge] = useState(false);
+  const [mode, setMode] = useState<Mode>(saved.current.mode || 'bot');
+  const [lastId, setLastId] = useState<number>(saved.current.lastId || 0);
+  const [agentName, setAgentName] = useState<string | undefined>(saved.current.agentName);
+  const [unread, setUnread] = useState(0);
+  const openRef = useRef(false);
+  openRef.current = open;
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { api.get('/chat/config').then((r) => setCfg(r.data)).catch(() => setCfg(null)); }, []);
-  useEffect(() => { save({ sessionId, msgs: msgs.slice(-60), nudged: saved.current.nudged }); }, [sessionId, msgs]);
+  useEffect(() => { save({ sessionId, msgs: msgs.slice(-60), nudged: saved.current.nudged, mode, lastId, agentName }); }, [sessionId, msgs, mode, lastId, agentName]);
+  // Keep the "team online" status fresh.
+  useEffect(() => {
+    const t = setInterval(() => api.get('/chat/config').then((r) => setCfg(r.data)).catch(() => undefined), 60000);
+    return () => clearInterval(t);
+  }, []);
+  // Live chat: check for replies from the team (every 4s with the chat open, every 15s when closed).
+  useEffect(() => {
+    if (mode !== 'live' || !sessionId) return;
+    let stop = false;
+    const tick = async () => {
+      try {
+        const r = await api.get('/chat/poll', { params: { sessionId, after: lastId } });
+        if (stop) return;
+        const fresh: Msg[] = r.data.messages.map((m: any) => ({ id: m.id, role: m.role, text: m.text, author: m.author }));
+        if (fresh.length) {
+          setMsgs((cur) => [...cur, ...fresh.filter((f) => !cur.some((c) => c.id === f.id))]);
+          setLastId(fresh[fresh.length - 1].id!);
+          if (!openRef.current) setUnread((u) => u + fresh.filter((f) => f.role === 'agent').length);
+        }
+        setAgentName(r.data.agentName || undefined);
+        setCfg((c) => (c ? { ...c, agentsOnline: r.data.agentsOnline } : c));
+        if (r.data.mode !== 'live') setMode('bot');
+      } catch { /* try again on the next tick */ }
+    };
+    tick();
+    const t = setInterval(tick, open ? 4000 : 15000);
+    return () => { stop = true; clearInterval(t); };
+  }, [mode, sessionId, lastId, open]);
   useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' }); }, [msgs, typing, open]);
   useEffect(() => {
     if (!cfg?.enabled || saved.current.nudged) return;
@@ -63,7 +98,7 @@ export default function ChatWidget() {
   if (!cfg?.enabled) return null;
 
   function openChat() {
-    setOpen(true); setNudge(false); saved.current.nudged = true;
+    setOpen(true); setNudge(false); setUnread(0); saved.current.nudged = true;
     if (!msgs.length) setMsgs([{ role: 'bot', text: cfg!.greeting, chips: cfg!.chips }]);
   }
 
@@ -76,10 +111,25 @@ export default function ChatWidget() {
     try {
       const r = await api.post('/chat', { sessionId, message, page: window.location.pathname });
       setSessionId(r.data.sessionId);
-      setMsgs((m) => [...m, { role: 'bot', text: r.data.reply.text, chips: r.data.reply.chips, action: r.data.reply.action }]);
+      if (r.data.mode) setMode(r.data.mode);
+      if (r.data.reply) setMsgs((m) => [...m, { role: 'bot', text: r.data.reply.text, chips: r.data.reply.chips, action: r.data.reply.action }]);
     } catch (x) {
       setMsgs((m) => [...m, { role: 'bot', text: `${errMsg(x, 'Sorry, I could not reply just now.')} You can also reach the team on WhatsApp.`, action: { type: 'whatsapp' } }]);
     } finally { setTyping(false); }
+  }
+
+  async function startLive() {
+    if (mode === 'live') return;
+    try {
+      const r = await api.post('/chat/live', { sessionId, page: window.location.pathname });
+      setSessionId(r.data.sessionId); setMode('live'); setLastId(r.data.lastId);
+      setMsgs((m) => [...m, { role: 'system', text: r.data.text, id: r.data.lastId }]);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } catch (x) { setMsgs((m) => [...m, { role: 'bot', text: `${errMsg(x)} You can reach the team on WhatsApp.`, action: { type: 'whatsapp' } }]); }
+  }
+  async function backToBot() {
+    if (!sessionId) return;
+    try { const r = await api.post('/chat/bot', { sessionId }); setMode('bot'); setLastId(r.data.lastId); setAgentName(undefined); setMsgs((m) => [...m, { role: 'system', text: r.data.text, chips: cfg!.chips }]); } catch { /* ignore */ }
   }
 
   const lastUser = [...msgs].reverse().find((m) => m.role === 'user')?.text || '';
@@ -96,27 +146,43 @@ export default function ChatWidget() {
         </div>
       )}
       {!open && (
-        <button className="chat-fab" onClick={openChat} aria-label={`Chat with ${cfg.name}`}>
-          <Icon name="chat" size={26} /><span className="chat-fab-label">Ask us</span>
+        <button className="chat-fab" onClick={openChat} aria-label={`Chat with us${cfg.agentsOnline ? ' (team online)' : ''}${unread ? `, ${unread} new message${unread > 1 ? 's' : ''}` : ''}`}>
+          <Icon name="chat" size={26} /><span className="chat-fab-label">{cfg.agentsOnline ? 'Chat with us' : 'Ask us'}</span>
+          {cfg.agentsOnline > 0 && <i className="chat-fab-online" aria-hidden="true" />}
+          {unread > 0 && <b className="chat-fab-badge" aria-hidden="true">{unread}</b>}
         </button>
       )}
       {open && (
         <section className="chat-panel" role="dialog" aria-label={`Chat with ${cfg.name}`}>
           <header className="chat-head">
             <img src="/images/logo.webp" alt="" width={40} height={40} />
-            <div><b>{cfg.name}</b><span><i className="chat-dot" />Online · replies instantly</span></div>
-            <a className="chat-head-btn" href={waHref} target="_blank" rel="noreferrer" aria-label="Continue on WhatsApp" title="Continue on WhatsApp"><Icon name="phone" size={18} /></a>
+            <div>
+              <b>{mode === 'live' ? (agentName ? `${agentName} · Apostle Joshua Outreach` : 'Live chat') : cfg.name}</b>
+              <span><i className={`chat-dot${mode === 'live' && !agentName && !cfg.agentsOnline ? ' off' : ''}`} />
+                {mode === 'live' ? (agentName ? 'Live chat with our team' : cfg.agentsOnline ? 'Team online · joining shortly' : 'Team offline · we’ll reply soon') : cfg.agentsOnline ? 'Assistant · team online now' : 'Assistant · replies instantly'}</span>
+            </div>
+            {mode === 'bot'
+              ? <button className="chat-head-btn" onClick={startLive} aria-label="Talk to a person" title="Talk to a person"><Icon name="users" size={18} /></button>
+              : <a className="chat-head-btn" href={waHref} target="_blank" rel="noreferrer" aria-label="Continue on WhatsApp" title="Continue on WhatsApp"><Icon name="phone" size={18} /></a>}
             <button className="chat-head-btn" onClick={() => setOpen(false)} aria-label="Close chat">×</button>
           </header>
+          {mode === 'live' && <div className="chat-livebar"><span><i className="live-dot" />You&rsquo;re chatting with a person</span><button onClick={backToBot}>Back to assistant</button></div>}
           <div className="chat-log" ref={logRef} aria-live="polite">
             {msgs.map((m, i) => (
-              <div key={i} className={`chat-msg ${m.role}`}>
+              <div key={m.id ? `m${m.id}` : i} className={`chat-msg ${m.role}`}>
+                {m.role === 'agent' && <small className="chat-author">{m.author || 'Team'} · Apostle Joshua Outreach</small>}
                 <div className="chat-bubble"><Rich text={m.text} /></div>
                 {m.action && !m.done && m.action.type === 'prayer_form' && <PrayerMini sessionId={sessionId} prefill={i === lastIdx ? lastUser : ''} onDone={(n) => markDone(i, `Thank you, ${n}. 🙏 Your prayer request has been received. Apostle Joshua and the prayer team are standing with you.`)} />}
                 {m.action && !m.done && m.action.type === 'contact_form' && <ContactMini subject={m.action.subject} sessionId={sessionId} prefill={i === lastIdx ? lastUser : ''} onDone={(n) => markDone(i, `Thank you, ${n}! Your message has been sent and the team will get back to you soon.`)} />}
+                {m.action?.type === 'handoff' && (
+                  <div className="chat-ctas">
+                    {mode === 'bot' && <button className="chat-cta" onClick={startLive}><Icon name="users" size={16} />Chat live here</button>}
+                    <a className="chat-cta wa" href={waHref} target="_blank" rel="noreferrer"><Icon name="chat" size={16} />WhatsApp</a>
+                  </div>
+                )}
                 {m.action?.type === 'whatsapp' && <a className="chat-cta wa" href={waHref} target="_blank" rel="noreferrer"><Icon name="chat" size={18} />Continue on WhatsApp</a>}
                 {m.action?.type === 'call' && <div className="chat-ctas"><a className="chat-cta danger" href="tel:112">Call 112 (emergency)</a>{cfg.phone && <a className="chat-cta" href={telLink(cfg.phone)}><Icon name="phone" size={16} />Call {cfg.phone}</a>}</div>}
-                {i === lastIdx && m.role === 'bot' && !!m.chips?.length && !typing && (
+                {i === lastIdx && (m.role === 'bot' || m.role === 'system') && mode === 'bot' && !!m.chips?.length && !typing && (
                   <div className="chat-chips">{m.chips.map((c) => <button key={c} onClick={() => send(c)}>{c}</button>)}</div>
                 )}
               </div>
@@ -125,12 +191,12 @@ export default function ChatWidget() {
           </div>
           <form className="chat-input" onSubmit={(e: FormEvent) => { e.preventDefault(); send(text); }}>
             <label htmlFor="chat-text" className="sr">Type your message</label>
-            <textarea id="chat-text" ref={inputRef} rows={1} value={text} maxLength={1000} placeholder="Type your message…"
+            <textarea id="chat-text" ref={inputRef} rows={1} value={text} maxLength={1000} placeholder={mode === 'live' ? 'Message the team…' : 'Type your message…'}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(text); } }} />
             <button type="submit" disabled={!text.trim() || typing} aria-label="Send">➤</button>
           </form>
-          <p className="chat-foot">Automated assistant. Chats are saved so our team can follow up.</p>
+          <p className="chat-foot">{mode === 'live' ? 'Live chat with the Apostle Joshua Outreach team.' : 'Automated assistant.'} Chats are saved so our team can follow up.</p>
         </section>
       )}
     </>

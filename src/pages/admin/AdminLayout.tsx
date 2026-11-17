@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Rays from '../../components/Rays';
 import { Icon } from '../../components/Icons';
@@ -30,29 +30,65 @@ const LINKS: [string, string, string][] = [
   ['/admin/messages', 'mail', 'Messages'], ['/admin/chat', 'chat', 'Chat assistant'], ['/admin/settings', 'gear', 'Settings'],
 ];
 
+/* A short two-note chime for new live-chat requests (no audio file needed). */
+function chime() {
+  try {
+    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext; if (!Ctx) return;
+    const ac = new Ctx();
+    [660, 880].forEach((f, i) => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; o.connect(g); g.connect(ac.destination); const t = ac.currentTime + i * 0.18; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.2, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); o.start(t); o.stop(t + 0.32); });
+  } catch { /* sound is optional */ }
+}
+
 export default function AdminLayout() {
   const { user, logout } = useAuth();
   const nav = useNavigate();
   const [badges, setBadges] = useState<{ prayer?: number; messages?: number; chat?: number }>({});
+  const [available, setAvailable] = useState<boolean>(() => { try { return localStorage.getItem('ajo_available') !== '0'; } catch { return true; } });
+  const [waiting, setWaiting] = useState<{ id: string; name: string | null; last_text: string }[]>([]);
+  const known = useRef<Set<string> | null>(null);
   const loc = useLocation();
   useEffect(() => { api.get('/dashboard').then((r) => setBadges({ prayer: r.data.counts.prayersNew, messages: r.data.counts.messagesNew, chat: r.data.counts.chatsUnseen })).catch(() => undefined); }, [loc.pathname]);
+
+  // Live chat presence: tell the server we're here every 20s, and hear about visitors waiting.
+  useEffect(() => {
+    try { localStorage.setItem('ajo_available', available ? '1' : '0'); } catch { /* ignore */ }
+    let stop = false;
+    const tick = () => api.post('/admin/presence', { available }).then((r) => {
+      if (stop) return;
+      const list = r.data.waiting as any[];
+      setWaiting(list);
+      const ids = new Set(list.map((w) => w.id));
+      if (known.current && list.some((w) => !known.current!.has(w.id))) { chime(); toast('💬 A visitor is waiting in live chat'); }
+      known.current = ids;
+    }).catch(() => undefined);
+    tick();
+    const t = setInterval(tick, 12000);
+    return () => { stop = true; clearInterval(t); };
+  }, [available]);
+  useEffect(() => { const base = 'Admin · Apostle Joshua Outreach'; document.title = waiting.length ? `(${waiting.length}) Live chat waiting · ${base}` : document.title.replace(/^\(\d+\) Live chat waiting · /, ''); }, [waiting.length, loc.pathname]);
   return (
     <>
       <section className="dash">
         <aside className="side" aria-label="Dashboard">
           <div className="side-head"><img src="/images/logo.webp" alt="" width={36} height={36} /><div><b>APOSTLE JOSHUA</b><span>DASHBOARD</span></div></div>
           {LINKS.map(([to, ic, label]) => {
-            const n = to === '/admin/prayer' ? badges.prayer : to === '/admin/messages' ? badges.messages : to === '/admin/chat' ? badges.chat : 0;
+            const n = to === '/admin/prayer' ? badges.prayer : to === '/admin/messages' ? badges.messages : to === '/admin/chat' ? (waiting.length || badges.chat) : 0;
             return <NavLink key={to} to={to} end={to === '/admin'} className="snav" style={({ isActive }) => (isActive ? { background: 'var(--gold)', color: 'var(--ink)' } : undefined)}>
               <Icon name={ic} />{label}{n ? <span className="pill new" style={{ marginLeft: 'auto' }}>{n}</span> : null}</NavLink>;
           })}
           <div className="side-foot">
+            <label className="avail"><input type="checkbox" checked={available} onChange={(e) => setAvailable(e.target.checked)} /><span className="avail-sw" aria-hidden="true" /><span>{available ? 'Available for live chat' : 'Away (live chat off)'}</span></label>
             <div className="who" style={{ background: 'none', border: 0, padding: '6px 8px' }}><div className="avatar">{(user?.name || 'A').charAt(0)}</div><div><b>{user?.name}</b><small>{user?.role === 'owner' ? 'Owner' : 'Admin'}</small></div></div>
             <Link className="snav" to="/"><Icon name="globe" />View website</Link>
-            <button className="snav" onClick={() => { logout(); nav('/admin/login'); }}><Icon name="out" />Log out</button>
+            <button className="snav" onClick={async () => { await api.post('/admin/presence', { offline: true }).catch(() => undefined); logout(); nav('/admin/login'); }}><Icon name="out" />Log out</button>
           </div>
         </aside>
-        <div className="main"><Outlet /></div>
+        <div className="main">
+          {waiting.length > 0 && !loc.pathname.startsWith('/admin/chat') && (
+            <Link to={`/admin/chat?tab=chats&c=${waiting[0].id}`} className="live-alert"><i className="live-dot" /><b>{waiting.length === 1 ? 'A visitor is waiting in live chat' : `${waiting.length} visitors are waiting in live chat`}</b><span>Reply now &rarr;</span></Link>
+          )}
+          <Outlet />
+        </div>
       </section>
       <Toaster />
     </>

@@ -1,3 +1,4 @@
+import BibleArt from '../components/BibleArt';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Rays from '../components/Rays';
@@ -43,10 +44,10 @@ export default function Home() {
               <Link className="btn btn-line" to="/prayer">Send a prayer request</Link>
             </div>
           </div>
-          <div className="portrait">
+          <div className="bible-art">
             <div className="halo" aria-hidden="true" /><div className="ring2" aria-hidden="true" /><div className="ring" aria-hidden="true" />
-            <img src="/images/apostle-cut.webp" alt="Apostle Joshua" width={760} height={1056} />
-            <div className="name"><b>APOSTLE JOSHUA</b><span>GALATIANS 1:16</span></div>
+            <BibleArt />
+            <div className="name"><b>THE WORD OF GOD</b><span>&ldquo;A LAMP UNTO MY FEET&rdquo; &middot; PSALM 119:105</span></div>
           </div>
         </div>
       </header>

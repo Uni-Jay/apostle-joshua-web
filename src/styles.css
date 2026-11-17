@@ -566,3 +566,21 @@ button.chat-cta{border:0;cursor:pointer}
 
 /* Short laptop screens: keep the hero compact so the photo and buttons stay in view */
 @media (min-width:880px) and (max-height:760px){.hero-copy{padding-bottom:64px;gap:16px}.hero .wrap{padding-top:32px}}
+
+/* Hero: open Bible inside perfectly centred rings (all circles share one centre) */
+.bible-art{position:relative;width:min(100%,470px);aspect-ratio:1;margin:8px auto 40px;align-self:center}
+.bible-art .halo{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,rgba(244,201,93,.42) 0%,rgba(244,201,93,.12) 45%,rgba(244,201,93,0) 70%)}
+.bible-art .ring2{position:absolute;inset:3%;border-radius:50%;border:1px dashed rgba(244,201,93,.45)}
+.bible-art .ring{position:absolute;inset:10%;border-radius:50%;border:2px solid var(--gold);opacity:.9;box-shadow:0 0 40px rgba(244,201,93,.18) inset}
+.bible-art .bible-svg{position:absolute;left:19%;width:62%;top:50%;transform:translateY(-54%);height:auto;overflow:visible;filter:drop-shadow(0 22px 26px rgba(5,2,40,.55))}
+.bible-art .name{position:absolute;left:50%;bottom:-2%;transform:translateX(-50%);white-space:nowrap;background:var(--gold);color:var(--ink);padding:9px 16px;border-radius:10px;box-shadow:var(--shadow);text-align:center}
+.bible-art .name b{display:block;font-family:var(--display);font-weight:400;font-size:clamp(20px,2.6vw,28px);line-height:1;letter-spacing:.06em}
+.bible-art .name span{font-size:clamp(8px,1vw,10px);font-weight:800;letter-spacing:.16em}
+@media (min-width:880px){.bible-art{margin:0 auto 70px}.hero .wrap:has(.bible-art){align-items:center}}
+@media (min-width:880px) and (max-height:760px){.bible-art{width:min(100%,400px,62vh);margin:16px auto 64px}}
+@media (prefers-reduced-motion:no-preference){
+  .bible-art .ba-glow{animation:baglow 5s ease-in-out infinite;transform-origin:200px 120px}
+  .bible-art .ba-beams{animation:babeams 6s ease-in-out infinite}
+  @keyframes baglow{50%{opacity:.75;transform:scale(1.04)}}
+  @keyframes babeams{50%{opacity:.45}}
+}
